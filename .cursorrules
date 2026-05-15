@@ -1,0 +1,24 @@
+# NoteFlow
+
+App de notas con Expo Router y TypeScript.
+
+## Estructura
+
+- `app/` — rutas (Expo Router). No mover lógica de negocio pesada aquí.
+- `components/items/` — componentes de listado/detalle de ítems.
+- `constants/theme.ts` — colores, espaciado y tema.
+- `store/notesStore.ts` — estado global de notas.
+- `types/index.ts` — tipos compartidos (`Note`, `ChecklistItem`, etc.).
+- `docs/` — documentación del proyecto.
+
+## Convenciones
+
+- TypeScript estricto.
+- Pantallas en `app/` como placeholders o UI mínima hasta que se pida implementar lógica.
+- Imports relativos desde la raíz del paquete o rutas coherentes con el resto del repo.
+- Español en textos de UI y documentación interna cuando aplique.
+
+## Alcance
+
+- No añadir dependencias sin necesidad.
+- Implementar lógica de store, persistencia y CRUD solo cuando se solicite explícitamente.
