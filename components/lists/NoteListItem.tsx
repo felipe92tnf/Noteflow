@@ -1,4 +1,4 @@
-import Animated, { FadeInDown, FadeOutLeft } from 'react-native-reanimated';
+import { View } from 'react-native';
 
 import type { AnyNote } from '../../types';
 import { isChecklistNote, isIdeaNote, isTextNote } from '../../types';
@@ -11,7 +11,7 @@ type NoteListItemProps = {
 
 export function NoteListItem({ item, onPress }: NoteListItemProps) {
   return (
-    <Animated.View entering={FadeInDown} exiting={FadeOutLeft}>
+    <View>
       {isTextNote(item) ? (
         <NoteCard note={item} onPress={() => onPress()} />
       ) : null}
@@ -19,6 +19,6 @@ export function NoteListItem({ item, onPress }: NoteListItemProps) {
         <ChecklistCard note={item} onPress={() => onPress()} />
       ) : null}
       {isIdeaNote(item) ? <IdeaCard note={item} onPress={() => onPress()} /> : null}
-    </Animated.View>
+    </View>
   );
 }
