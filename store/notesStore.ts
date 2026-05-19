@@ -1,6 +1,7 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+
+import { notesStateStorage } from '../utils/storage';
 
 import type {
   AnyNote,
@@ -284,7 +285,7 @@ export const useNotesStore = create<NotesStore>()(
     }),
     {
       name: NOTES_STORAGE_KEY,
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => notesStateStorage),
       partialize: (state): PersistedNotesState => ({
         notes: state.notes,
         checklists: state.checklists,

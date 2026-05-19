@@ -1,4 +1,3 @@
-import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useMemo } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, View } from 'react-native';
@@ -8,6 +7,7 @@ import { spacing } from '../../../constants/theme';
 import { useNotesStore } from '../../../store/notesStore';
 import { formatCreatedDate } from '../../../utils/format';
 import { resolveParamId } from '../../../utils/resolveParamId';
+import { impactMedium } from '../../../utils/safeHaptics';
 
 export default function NotaDetailScreen() {
   const router = useRouter();
@@ -35,7 +35,7 @@ export default function NotaDetailScreen() {
         text: 'Eliminar',
         style: 'destructive',
         onPress: () => {
-          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          void impactMedium();
           deleteNote(note.id);
           router.back();
         },

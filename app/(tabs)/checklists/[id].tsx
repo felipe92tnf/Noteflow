@@ -1,4 +1,3 @@
-import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useMemo } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, View } from 'react-native';
@@ -7,6 +6,7 @@ import { Button, Checkbox, Divider, Text, useTheme } from 'react-native-paper';
 import { spacing } from '../../../constants/theme';
 import { useNotesStore } from '../../../store/notesStore';
 import { formatNoteDate } from '../../../utils/format';
+import { impactLight, notificationSuccess } from '../../../utils/safeHaptics';
 
 function resolveParamId(id: string | string[] | undefined): string | undefined {
   if (typeof id === 'string') {
@@ -42,7 +42,7 @@ export default function ChecklistDetailScreen() {
       if (!checklistId) {
         return;
       }
-      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      void impactLight();
       toggleChecklistItem(checklistId, itemId);
     },
     [checklistId, toggleChecklistItem],
@@ -62,7 +62,7 @@ export default function ChecklistDetailScreen() {
           text: 'Eliminar',
           style: 'destructive',
           onPress: () => {
-            void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            void notificationSuccess();
             deleteChecklist(checklist.id);
             router.back();
           },

@@ -1,11 +1,10 @@
-import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { FAB, TextInput, useTheme } from 'react-native-paper';
 
-import { withEstimatedItemSize } from '../../../components/lists/flashListEstimatedSize';
 import { NoteListItem } from '../../../components/lists/NoteListItem';
+import { VirtualizedList } from '../../../components/lists/VirtualizedList';
 import { getListEmptyState, TAB_ROUTES } from '../../../components/lists/tabListConstants';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { spacing } from '../../../constants/theme';
@@ -48,8 +47,8 @@ export default function IdeasIndexScreen() {
             <ActivityIndicator size="large" />
           </View>
         ) : (
-        <FlashList<IdeaNote>
-          {...withEstimatedItemSize<IdeaNote>(140)}
+        <VirtualizedList<IdeaNote>
+          estimatedItemSize={140}
           data={filteredNotes}
           renderItem={({ item }) => (
             <NoteListItem

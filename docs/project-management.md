@@ -381,11 +381,12 @@ Referencia rápida alineada con las tarjetas:
 
 | Recurso | Enlace |
 |---------|--------|
-| **Tablero Trello** | [Enlace al tablero Trello pendiente] |
+| **Tablero Trello** | [https://trello.com/invite/b/6a0c1ee99bce9ef3fce77b45/ATTI02c52c350a74df728e27a1e7225875c9550DEEE5/noteflow]
 | Idea de producto | [`docs/idea.md`](./idea.md) |
 | Teoría React Native | [`docs/react-native-teoria.md`](./react-native-teoria.md) |
 | Configuración IA | [`docs/ai-setup.md`](./ai-setup.md) |
 | Reglas Cursor | [`.cursorrules`](../.cursorrules) |
+
 
 ---
 
