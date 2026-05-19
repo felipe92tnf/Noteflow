@@ -67,3 +67,37 @@ export function filterNotesByType(
       return filterIdeaNotes(notes, query);
   }
 }
+
+/** Filtra notas, checklists e ideas archivadas en una sola lista. */
+export function filterArchivedNotes(notes: readonly AnyNote[], query: string): AnyNote[] {
+  const normalized = normalizeQuery(query);
+
+  if (!normalized) {
+    return [...notes];
+  }
+
+  return notes.filter((note) => {
+    if (isTextNote(note)) {
+      return (
+        note.title.toLowerCase().includes(normalized) ||
+        note.content.toLowerCase().includes(normalized)
+      );
+    }
+
+    if (isChecklistNote(note)) {
+      return (
+        note.title.toLowerCase().includes(normalized) ||
+        note.items.some((item) => item.text.toLowerCase().includes(normalized))
+      );
+    }
+
+    if (isIdeaNote(note)) {
+      return (
+        note.title.toLowerCase().includes(normalized) ||
+        note.tags.some((tag) => tag.toLowerCase().includes(normalized))
+      );
+    }
+
+    return false;
+  });
+}

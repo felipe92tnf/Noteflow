@@ -17,31 +17,30 @@ export default function NotaDetailScreen() {
 
   const hasHydrated = useNotesStore((state) => state._hasHydrated);
   const notes = useNotesStore((state) => state.notes);
-  const deleteNote = useNotesStore((state) => state.deleteNote);
+  const archiveNote = useNotesStore((state) => state.archiveNote);
 
   const note = useMemo(
     () => (noteId ? notes.find((item) => item.id === noteId) : undefined),
     [noteId, notes],
   );
 
-  const handleDelete = useCallback(() => {
+  const handleArchive = useCallback(() => {
     if (!note) {
       return;
     }
 
-    Alert.alert('Eliminar nota', `¿Seguro que quieres eliminar "${note.title}"?`, [
+    Alert.alert('Archivar nota', `¿Archivar "${note.title}"? Podrás restaurarla desde Archivadas.`, [
       { text: 'Cancelar', style: 'cancel' },
       {
-        text: 'Eliminar',
-        style: 'destructive',
+        text: 'Archivar',
         onPress: () => {
           void impactMedium();
-          deleteNote(note.id);
+          archiveNote(note.id);
           router.back();
         },
       },
     ]);
-  }, [deleteNote, note, router]);
+  }, [archiveNote, note, router]);
 
   if (!hasHydrated) {
     return (
@@ -77,12 +76,11 @@ export default function NotaDetailScreen() {
 
       <Button
         mode="outlined"
-        icon="delete"
-        textColor={theme.colors.error}
-        style={styles.deleteButton}
-        onPress={handleDelete}
+        icon="archive-arrow-down"
+        style={styles.archiveButton}
+        onPress={handleArchive}
       >
-        Eliminar nota
+        Archivar
       </Button>
     </ScrollView>
   );
@@ -108,8 +106,7 @@ const styles = StyleSheet.create({
   body: {
     lineHeight: 24,
   },
-  deleteButton: {
+  archiveButton: {
     marginTop: spacing.xl,
-    borderColor: 'transparent',
   },
 });

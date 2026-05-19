@@ -19,6 +19,9 @@ export interface NotesStoreState {
   notes: Note[];
   checklists: ChecklistNote[];
   ideas: IdeaNote[];
+  archivedNotes: Note[];
+  archivedChecklists: ChecklistNote[];
+  archivedIdeas: IdeaNote[];
   _hasHydrated: boolean;
 }
 
@@ -30,6 +33,8 @@ export interface NotesStoreActions {
   addIdea: (idea: IdeaNote) => void;
   updateNote: (id: string, input: UpdateAnyNoteInput) => void;
   toggleChecklistItem: (checklistId: string, itemId: string) => void;
+  archiveNote: (id: string) => void;
+  unarchiveNote: (id: string) => void;
   deleteChecklist: (id: string) => void;
   deleteNote: (id: string) => void;
   deleteIdea: (id: string) => void;
@@ -39,7 +44,15 @@ export interface NotesStoreActions {
 
 export type NotesStore = NotesStoreState & NotesStoreActions;
 
-type PersistedNotesState = Pick<NotesStoreState, 'notes' | 'checklists' | 'ideas'>;
+type PersistedNotesState = Pick<
+  NotesStoreState,
+  | 'notes'
+  | 'checklists'
+  | 'ideas'
+  | 'archivedNotes'
+  | 'archivedChecklists'
+  | 'archivedIdeas'
+>;
 
 type LegacyPersistedState = {
   notes?: unknown[];
@@ -56,6 +69,15 @@ type LegacyNote = {
 };
 
 const createTimestamp = (): string => new Date().toISOString();
+
+const EMPTY_ARCHIVED: Pick<
+  PersistedNotesState,
+  'archivedNotes' | 'archivedChecklists' | 'archivedIdeas'
+> = {
+  archivedNotes: [],
+  archivedChecklists: [],
+  archivedIdeas: [],
+};
 
 function isLegacyNote(note: unknown): note is LegacyNote {
   return (
@@ -134,7 +156,7 @@ function migratePersistedNotes(notes: unknown): AnyNote[] {
   return notes.filter(isLegacyNote).map((note) => migrateLegacyNote(note));
 }
 
-function splitNotesByType(allNotes: AnyNote[]): PersistedNotesState {
+function splitNotesByType(allNotes: AnyNote[]): Pick<PersistedNotesState, 'notes' | 'checklists' | 'ideas'> {
   return {
     notes: allNotes.filter(isTextNote),
     checklists: allNotes.filter(isChecklistNote),
@@ -174,18 +196,39 @@ function applyIdeaUpdate(idea: IdeaNote, input: UpdateAnyNoteInput): IdeaNote {
   };
 }
 
+function normalizePersistedState(state: Partial<PersistedNotesState>): PersistedNotesState {
+  return {
+    notes: Array.isArray(state.notes) ? state.notes : [],
+    checklists: Array.isArray(state.checklists) ? state.checklists : [],
+    ideas: Array.isArray(state.ideas) ? state.ideas : [],
+    archivedNotes: Array.isArray(state.archivedNotes) ? state.archivedNotes : [],
+    archivedChecklists: Array.isArray(state.archivedChecklists)
+      ? state.archivedChecklists
+      : [],
+    archivedIdeas: Array.isArray(state.archivedIdeas) ? state.archivedIdeas : [],
+  };
+}
+
 function migratePersistedState(persistedState: unknown, version: number): PersistedNotesState {
+  if (version >= 3) {
+    return normalizePersistedState(persistedState as Partial<PersistedNotesState>);
+  }
+
   if (version >= 2) {
-    const state = persistedState as PersistedNotesState;
-    return {
-      notes: Array.isArray(state.notes) ? state.notes : [],
-      checklists: Array.isArray(state.checklists) ? state.checklists : [],
-      ideas: Array.isArray(state.ideas) ? state.ideas : [],
-    };
+    const state = persistedState as Partial<PersistedNotesState>;
+    return normalizePersistedState({
+      notes: state.notes,
+      checklists: state.checklists,
+      ideas: state.ideas,
+      ...EMPTY_ARCHIVED,
+    });
   }
 
   const legacy = persistedState as LegacyPersistedState;
-  return splitNotesByType(migratePersistedNotes(legacy.notes ?? []));
+  return {
+    ...splitNotesByType(migratePersistedNotes(legacy.notes ?? [])),
+    ...EMPTY_ARCHIVED,
+  };
 }
 
 export const useNotesStore = create<NotesStore>()(
@@ -194,6 +237,9 @@ export const useNotesStore = create<NotesStore>()(
       notes: [],
       checklists: [],
       ideas: [],
+      archivedNotes: [],
+      archivedChecklists: [],
+      archivedIdeas: [],
       _hasHydrated: false,
 
       getNotesByType: (type) => {
@@ -261,25 +307,104 @@ export const useNotesStore = create<NotesStore>()(
         }));
       },
 
+      archiveNote: (id) => {
+        set((state) => {
+          const note = state.notes.find((item) => item.id === id);
+          if (note) {
+            const archived = { ...note, updatedAt: createTimestamp() };
+            return {
+              notes: state.notes.filter((item) => item.id !== id),
+              archivedNotes: [archived, ...state.archivedNotes],
+            };
+          }
+
+          const checklist = state.checklists.find((item) => item.id === id);
+          if (checklist) {
+            const archived = { ...checklist, updatedAt: createTimestamp() };
+            return {
+              checklists: state.checklists.filter((item) => item.id !== id),
+              archivedChecklists: [archived, ...state.archivedChecklists],
+            };
+          }
+
+          const idea = state.ideas.find((item) => item.id === id);
+          if (idea) {
+            const archived = { ...idea, updatedAt: createTimestamp() };
+            return {
+              ideas: state.ideas.filter((item) => item.id !== id),
+              archivedIdeas: [archived, ...state.archivedIdeas],
+            };
+          }
+
+          return {};
+        });
+      },
+
+      unarchiveNote: (id) => {
+        set((state) => {
+          const note = state.archivedNotes.find((item) => item.id === id);
+          if (note) {
+            const restored = { ...note, updatedAt: createTimestamp() };
+            return {
+              archivedNotes: state.archivedNotes.filter((item) => item.id !== id),
+              notes: [restored, ...state.notes],
+            };
+          }
+
+          const checklist = state.archivedChecklists.find((item) => item.id === id);
+          if (checklist) {
+            const restored = { ...checklist, updatedAt: createTimestamp() };
+            return {
+              archivedChecklists: state.archivedChecklists.filter((item) => item.id !== id),
+              checklists: [restored, ...state.checklists],
+            };
+          }
+
+          const idea = state.archivedIdeas.find((item) => item.id === id);
+          if (idea) {
+            const restored = { ...idea, updatedAt: createTimestamp() };
+            return {
+              archivedIdeas: state.archivedIdeas.filter((item) => item.id !== id),
+              ideas: [restored, ...state.ideas],
+            };
+          }
+
+          return {};
+        });
+      },
+
       deleteChecklist: (id) => {
         set((state) => ({
           checklists: state.checklists.filter((checklist) => checklist.id !== id),
+          archivedChecklists: state.archivedChecklists.filter(
+            (checklist) => checklist.id !== id,
+          ),
         }));
       },
 
       deleteNote: (id) => {
         set((state) => ({
           notes: state.notes.filter((note) => note.id !== id),
+          archivedNotes: state.archivedNotes.filter((note) => note.id !== id),
         }));
       },
 
       deleteIdea: (id) => {
         set((state) => ({
           ideas: state.ideas.filter((idea) => idea.id !== id),
+          archivedIdeas: state.archivedIdeas.filter((idea) => idea.id !== id),
         }));
       },
 
-      resetNotes: () => set({ notes: [], checklists: [], ideas: [] }),
+      resetNotes: () =>
+        set({
+          notes: [],
+          checklists: [],
+          ideas: [],
+          archivedNotes: [],
+          archivedChecklists: [],
+          archivedIdeas: [],
+        }),
 
       setHasHydrated: (value) => set({ _hasHydrated: value }),
     }),
@@ -290,8 +415,11 @@ export const useNotesStore = create<NotesStore>()(
         notes: state.notes,
         checklists: state.checklists,
         ideas: state.ideas,
+        archivedNotes: state.archivedNotes,
+        archivedChecklists: state.archivedChecklists,
+        archivedIdeas: state.archivedIdeas,
       }),
-      version: 2,
+      version: 3,
       migrate: (persistedState, version) =>
         migratePersistedState(persistedState, version),
       onRehydrateStorage: () => (state, error) => {

@@ -18,7 +18,7 @@ export default function IdeaDetailScreen() {
 
   const hasHydrated = useNotesStore((state) => state._hasHydrated);
   const ideas = useNotesStore((state) => state.ideas);
-  const deleteIdea = useNotesStore((state) => state.deleteIdea);
+  const archiveNote = useNotesStore((state) => state.archiveNote);
 
   const idea = useMemo(
     () => (ideaId ? ideas.find((item) => item.id === ideaId) : undefined),
@@ -27,24 +27,23 @@ export default function IdeaDetailScreen() {
 
   const colorValue = idea ? IDEA_COLOR_VALUES[idea.color] : undefined;
 
-  const handleDelete = useCallback(() => {
+  const handleArchive = useCallback(() => {
     if (!idea) {
       return;
     }
 
-    Alert.alert('Eliminar idea', `¿Seguro que quieres eliminar "${idea.title}"?`, [
+    Alert.alert('Archivar idea', `¿Archivar "${idea.title}"? Podrás restaurarla desde Archivadas.`, [
       { text: 'Cancelar', style: 'cancel' },
       {
-        text: 'Eliminar',
-        style: 'destructive',
+        text: 'Archivar',
         onPress: () => {
           void impactMedium();
-          deleteIdea(idea.id);
+          archiveNote(idea.id);
           router.back();
         },
       },
     ]);
-  }, [deleteIdea, idea, router]);
+  }, [archiveNote, idea, router]);
 
   if (!hasHydrated) {
     return (
@@ -111,12 +110,11 @@ export default function IdeaDetailScreen() {
 
       <Button
         mode="outlined"
-        icon="delete"
-        textColor={theme.colors.error}
-        style={styles.deleteButton}
-        onPress={handleDelete}
+        icon="archive-arrow-down"
+        style={styles.archiveButton}
+        onPress={handleArchive}
       >
-        Eliminar idea
+        Archivar
       </Button>
     </ScrollView>
   );
@@ -167,8 +165,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     lineHeight: 22,
   },
-  deleteButton: {
+  archiveButton: {
     marginTop: spacing.xl,
-    borderColor: 'transparent',
   },
 });

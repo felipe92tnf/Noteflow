@@ -27,7 +27,7 @@ export default function ChecklistDetailScreen() {
   const hasHydrated = useNotesStore((state) => state._hasHydrated);
   const checklists = useNotesStore((state) => state.checklists);
   const toggleChecklistItem = useNotesStore((state) => state.toggleChecklistItem);
-  const deleteChecklist = useNotesStore((state) => state.deleteChecklist);
+  const archiveNote = useNotesStore((state) => state.archiveNote);
 
   const checklist = useMemo(
     () => (checklistId ? checklists.find((item) => item.id === checklistId) : undefined),
@@ -48,28 +48,27 @@ export default function ChecklistDetailScreen() {
     [checklistId, toggleChecklistItem],
   );
 
-  const handleDelete = useCallback(() => {
+  const handleArchive = useCallback(() => {
     if (!checklist) {
       return;
     }
 
     Alert.alert(
-      'Eliminar checklist',
-      `¿Seguro que quieres eliminar "${checklist.title}"?`,
+      'Archivar checklist',
+      `¿Archivar "${checklist.title}"? Podrás restaurarla desde Archivadas.`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
-          text: 'Eliminar',
-          style: 'destructive',
+          text: 'Archivar',
           onPress: () => {
             void notificationSuccess();
-            deleteChecklist(checklist.id);
+            archiveNote(checklist.id);
             router.back();
           },
         },
       ],
     );
-  }, [checklist, deleteChecklist, router]);
+  }, [archiveNote, checklist, router]);
 
   if (!hasHydrated) {
     return (
@@ -127,12 +126,11 @@ export default function ChecklistDetailScreen() {
 
       <Button
         mode="outlined"
-        icon="delete"
-        textColor={theme.colors.error}
-        style={styles.deleteButton}
-        onPress={handleDelete}
+        icon="archive-arrow-down"
+        style={styles.archiveButton}
+        onPress={handleArchive}
       >
-        Eliminar checklist
+        Archivar
       </Button>
     </ScrollView>
   );
@@ -167,8 +165,7 @@ const styles = StyleSheet.create({
   itemCompleted: {
     textDecorationLine: 'line-through',
   },
-  deleteButton: {
+  archiveButton: {
     marginTop: spacing.xl,
-    borderColor: 'transparent',
   },
 });
