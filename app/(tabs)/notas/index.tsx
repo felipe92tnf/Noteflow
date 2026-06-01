@@ -17,7 +17,7 @@ export default function NotasIndexScreen() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const hasHydrated = useNotesStore((state) => state._hasHydrated);
-  const allNotes = useNotesStore((state) => state.getNotesByType('note'));
+  const allNotes = useNotesStore((state) => state.notes);
 
   const filteredNotes = useMemo(
     () => filterTextNotes(allNotes, searchQuery),

@@ -1,6 +1,13 @@
 import { create } from 'zustand';
 
-import { mapUpdateInputToPayload, notesApi, toErrorMessage } from '../lib/api';
+import {
+  mapApiNoteRecordToAnyNote,
+  mapArchivePayload,
+  mapCreateAnyNoteInputToDto,
+  mapUpdateInputToPayload,
+  notesApi,
+  toErrorMessage,
+} from '../lib/api';
 import type {
   AnyNote,
   ChecklistNote,
@@ -13,11 +20,12 @@ import type {
 
 import { readNotesCache, writeNotesCache } from './notesCache';
 import {
+  findNoteInState,
   localArchive,
   localDelete,
   localUnarchive,
   optimisticUpdate,
-  replaceNoteInState,
+  placeNoteInPartition,
   toCacheSnapshot,
   upsertActiveNote,
 } from './notesStoreHelpers';
@@ -88,13 +96,21 @@ export const useNotesStore = create<NotesStore>()((set, get) => ({
     set({ error: null });
 
     try {
-      const created = await notesApi.create(input);
+      const created =
+        input.type === 'checklist'
+          ? await notesApi.createChecklist(
+              input.title,
+              (input.items ?? []).map((item) => ({ text: item.text })),
+            )
+          : await notesApi.create(mapCreateAnyNoteInputToDto(input));
+
       set((state) => ({
-        ...upsertActiveNote(state, created),
+        ...upsertActiveNote(state, mapApiNoteRecordToAnyNote(created)),
         error: null,
       }));
       await persistCacheFromStore(get);
     } catch (error) {
+      console.warn('[notesStore] createNote failed:', error);
       set({ error: toErrorMessage(error) });
       throw error;
     }
@@ -109,8 +125,9 @@ export const useNotesStore = create<NotesStore>()((set, get) => ({
 
     try {
       const updated = await notesApi.update(id, mapUpdateInputToPayload(input));
+      const note = mapApiNoteRecordToAnyNote(updated);
       set((state) => ({
-        ...replaceNoteInState(state, updated),
+        ...placeNoteInPartition(state, note, updated.archived),
         error: null,
       }));
       await persistCacheFromStore(get);
@@ -177,29 +194,41 @@ export const useNotesStore = create<NotesStore>()((set, get) => ({
   },
 
   addNote: (note: Note) => {
-    void get().createNote({
-      type: 'note',
-      title: note.title,
-      content: note.content,
-    });
+    void get()
+      .createNote({
+        type: 'note',
+        title: note.title,
+        content: note.content,
+      })
+      .catch((error) => {
+        console.warn('[notesStore] addNote failed:', error);
+      });
   },
 
   addChecklist: (checklist: ChecklistNote) => {
-    void get().createNote({
-      type: 'checklist',
-      title: checklist.title,
-      items: checklist.items,
-    });
+    void get()
+      .createNote({
+        type: 'checklist',
+        title: checklist.title,
+        items: checklist.items,
+      })
+      .catch((error) => {
+        console.warn('[notesStore] addChecklist failed:', error);
+      });
   },
 
   addIdea: (idea: IdeaNote) => {
-    void get().createNote({
-      type: 'idea',
-      title: idea.title,
-      content: idea.content,
-      tags: idea.tags,
-      color: idea.color,
-    });
+    void get()
+      .createNote({
+        type: 'idea',
+        title: idea.title,
+        content: idea.content,
+        tags: idea.tags,
+        color: idea.color,
+      })
+      .catch((error) => {
+        console.warn('[notesStore] addIdea failed:', error);
+      });
   },
 
   toggleChecklistItem: (checklistId, itemId) => {
@@ -208,15 +237,49 @@ export const useNotesStore = create<NotesStore>()((set, get) => ({
       return;
     }
 
-    const items = checklist.items.map((item) =>
-      item.id === itemId ? { ...item, completed: !item.completed } : item,
-    );
+    const targetItem = checklist.items.find((item) => item.id === itemId);
+    if (!targetItem) {
+      return;
+    }
 
-    void get().updateNote(checklistId, { items });
+    const nextCompleted = !targetItem.completed;
+    const previous = get();
+
+    set((state) => ({
+      checklists: state.checklists.map((entry) =>
+        entry.id === checklistId
+          ? {
+              ...entry,
+              items: entry.items.map((item) =>
+                item.id === itemId ? { ...item, completed: nextCompleted } : item,
+              ),
+            }
+          : entry,
+      ),
+      error: null,
+    }));
+
+    void (async () => {
+      try {
+        await notesApi.updateChecklistItem(itemId, nextCompleted);
+        await persistCacheFromStore(get);
+      } catch (error) {
+        console.warn('[notesStore] toggleChecklistItem failed:', error);
+        set({
+          checklists: previous.checklists,
+          error: toErrorMessage(error),
+        });
+      }
+    })();
   },
 
   archiveNote: (id) => {
     const previous = get();
+    const note = findNoteInState(previous, id);
+    if (!note) {
+      return;
+    }
+
     set((state) => ({
       ...localArchive(state, id),
       error: null,
@@ -224,24 +287,28 @@ export const useNotesStore = create<NotesStore>()((set, get) => ({
 
     void (async () => {
       try {
-        await notesApi.update(id, { archived: true });
+        const updated = await notesApi.update(id, mapArchivePayload(true));
+        const mapped = mapApiNoteRecordToAnyNote(updated);
+        set((state) => ({
+          ...placeNoteInPartition(state, mapped, updated.archived),
+          error: null,
+        }));
         await persistCacheFromStore(get);
       } catch (error) {
-        set({
-          notes: previous.notes,
-          checklists: previous.checklists,
-          ideas: previous.ideas,
-          archivedNotes: previous.archivedNotes,
-          archivedChecklists: previous.archivedChecklists,
-          archivedIdeas: previous.archivedIdeas,
-          error: toErrorMessage(error),
-        });
+        console.warn('[notesStore] archiveNote failed:', error);
+        // Mantener el archivado local; no revertir si la API falla (p. ej. CORS en web).
+        set({ error: toErrorMessage(error) });
       }
     })();
   },
 
   unarchiveNote: (id) => {
     const previous = get();
+    const note = findNoteInState(previous, id);
+    if (!note) {
+      return;
+    }
+
     set((state) => ({
       ...localUnarchive(state, id),
       error: null,
@@ -249,18 +316,16 @@ export const useNotesStore = create<NotesStore>()((set, get) => ({
 
     void (async () => {
       try {
-        await notesApi.update(id, { archived: false });
+        const updated = await notesApi.update(id, mapArchivePayload(false));
+        const mapped = mapApiNoteRecordToAnyNote(updated);
+        set((state) => ({
+          ...placeNoteInPartition(state, mapped, updated.archived),
+          error: null,
+        }));
         await persistCacheFromStore(get);
       } catch (error) {
-        set({
-          notes: previous.notes,
-          checklists: previous.checklists,
-          ideas: previous.ideas,
-          archivedNotes: previous.archivedNotes,
-          archivedChecklists: previous.archivedChecklists,
-          archivedIdeas: previous.archivedIdeas,
-          error: toErrorMessage(error),
-        });
+        console.warn('[notesStore] unarchiveNote failed:', error);
+        set({ error: toErrorMessage(error) });
       }
     })();
   },

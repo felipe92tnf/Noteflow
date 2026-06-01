@@ -1,12 +1,13 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useMemo } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import { Button, Chip, Divider, Text, useTheme } from 'react-native-paper';
 
 import { IDEA_COLOR_LABELS, IDEA_COLOR_VALUES } from '../../../constants/ideaColors';
 import { spacing } from '../../../constants/theme';
 import { useNotesStore } from '../../../store/notesStore';
 import { formatCreatedDate } from '../../../utils/format';
+import { confirmAction } from '../../../utils/confirmAction';
 import { resolveParamId } from '../../../utils/resolveParamId';
 import { impactMedium } from '../../../utils/safeHaptics';
 
@@ -17,32 +18,34 @@ export default function IdeaDetailScreen() {
   const ideaId = resolveParamId(id);
 
   const hasHydrated = useNotesStore((state) => state._hasHydrated);
-  const ideas = useNotesStore((state) => state.ideas);
+  const getNoteById = useNotesStore((state) => state.getNoteById);
   const archiveNote = useNotesStore((state) => state.archiveNote);
 
-  const idea = useMemo(
-    () => (ideaId ? ideas.find((item) => item.id === ideaId) : undefined),
-    [ideaId, ideas],
-  );
+  const idea = useMemo(() => {
+    const found = ideaId ? getNoteById(ideaId) : undefined;
+    return found?.type === 'idea' ? found : undefined;
+  }, [getNoteById, ideaId]);
 
   const colorValue = idea ? IDEA_COLOR_VALUES[idea.color] : undefined;
 
-  const handleArchive = useCallback(() => {
+  const handleArchive = useCallback(async () => {
     if (!idea) {
       return;
     }
 
-    Alert.alert('Archivar idea', `¿Archivar "${idea.title}"? Podrás restaurarla desde Archivadas.`, [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Archivar',
-        onPress: () => {
-          void impactMedium();
-          archiveNote(idea.id);
-          router.back();
-        },
-      },
-    ]);
+    const confirmed = await confirmAction(
+      'Archivar idea',
+      `¿Archivar "${idea.title}"? Podrás restaurarla desde Archivadas.`,
+      'Archivar',
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    void impactMedium();
+    archiveNote(idea.id);
+    router.back();
   }, [archiveNote, idea, router]);
 
   if (!hasHydrated) {

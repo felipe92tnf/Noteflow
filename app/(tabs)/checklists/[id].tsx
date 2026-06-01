@@ -1,10 +1,11 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useMemo } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import { Button, Checkbox, Divider, Text, useTheme } from 'react-native-paper';
 
 import { spacing } from '../../../constants/theme';
 import { useNotesStore } from '../../../store/notesStore';
+import { confirmAction } from '../../../utils/confirmAction';
 import { formatNoteDate } from '../../../utils/format';
 import { impactLight, notificationSuccess } from '../../../utils/safeHaptics';
 
@@ -25,14 +26,14 @@ export default function ChecklistDetailScreen() {
   const checklistId = resolveParamId(id);
 
   const hasHydrated = useNotesStore((state) => state._hasHydrated);
-  const checklists = useNotesStore((state) => state.checklists);
+  const getNoteById = useNotesStore((state) => state.getNoteById);
   const toggleChecklistItem = useNotesStore((state) => state.toggleChecklistItem);
   const archiveNote = useNotesStore((state) => state.archiveNote);
 
-  const checklist = useMemo(
-    () => (checklistId ? checklists.find((item) => item.id === checklistId) : undefined),
-    [checklistId, checklists],
-  );
+  const checklist = useMemo(() => {
+    const found = checklistId ? getNoteById(checklistId) : undefined;
+    return found?.type === 'checklist' ? found : undefined;
+  }, [checklistId, getNoteById]);
 
   const completedCount = checklist?.items.filter((item) => item.completed).length ?? 0;
   const totalCount = checklist?.items.length ?? 0;
@@ -48,26 +49,24 @@ export default function ChecklistDetailScreen() {
     [checklistId, toggleChecklistItem],
   );
 
-  const handleArchive = useCallback(() => {
+  const handleArchive = useCallback(async () => {
     if (!checklist) {
       return;
     }
 
-    Alert.alert(
+    const confirmed = await confirmAction(
       'Archivar checklist',
       `¿Archivar "${checklist.title}"? Podrás restaurarla desde Archivadas.`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Archivar',
-          onPress: () => {
-            void notificationSuccess();
-            archiveNote(checklist.id);
-            router.back();
-          },
-        },
-      ],
+      'Archivar',
     );
+
+    if (!confirmed) {
+      return;
+    }
+
+    void notificationSuccess();
+    archiveNote(checklist.id);
+    router.back();
   }, [archiveNote, checklist, router]);
 
   if (!hasHydrated) {

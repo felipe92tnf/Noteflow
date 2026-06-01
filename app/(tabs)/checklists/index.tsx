@@ -17,7 +17,7 @@ export default function ChecklistsIndexScreen() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const hasHydrated = useNotesStore((state) => state._hasHydrated);
-  const allNotes = useNotesStore((state) => state.getNotesByType('checklist'));
+  const allNotes = useNotesStore((state) => state.checklists);
 
   const filteredNotes = useMemo(
     () => filterChecklistNotes(allNotes, searchQuery),

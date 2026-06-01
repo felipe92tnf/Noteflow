@@ -17,7 +17,7 @@ export default function IdeasIndexScreen() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const hasHydrated = useNotesStore((state) => state._hasHydrated);
-  const allNotes = useNotesStore((state) => state.getNotesByType('idea'));
+  const allNotes = useNotesStore((state) => state.ideas);
 
   const filteredNotes = useMemo(
     () => filterIdeaNotes(allNotes, searchQuery),

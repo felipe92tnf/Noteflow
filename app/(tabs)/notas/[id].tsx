@@ -1,11 +1,13 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useMemo } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import { Button, Divider, Text, useTheme } from 'react-native-paper';
 
 import { spacing } from '../../../constants/theme';
 import { useNotesStore } from '../../../store/notesStore';
+import { isTextNote } from '../../../types';
 import { formatCreatedDate } from '../../../utils/format';
+import { confirmAction } from '../../../utils/confirmAction';
 import { resolveParamId } from '../../../utils/resolveParamId';
 import { impactMedium } from '../../../utils/safeHaptics';
 
@@ -16,30 +18,32 @@ export default function NotaDetailScreen() {
   const noteId = resolveParamId(id);
 
   const hasHydrated = useNotesStore((state) => state._hasHydrated);
-  const notes = useNotesStore((state) => state.notes);
+  const getNoteById = useNotesStore((state) => state.getNoteById);
   const archiveNote = useNotesStore((state) => state.archiveNote);
 
-  const note = useMemo(
-    () => (noteId ? notes.find((item) => item.id === noteId) : undefined),
-    [noteId, notes],
-  );
+  const note = useMemo(() => {
+    const found = noteId ? getNoteById(noteId) : undefined;
+    return found && isTextNote(found) ? found : undefined;
+  }, [getNoteById, noteId]);
 
-  const handleArchive = useCallback(() => {
+  const handleArchive = useCallback(async () => {
     if (!note) {
       return;
     }
 
-    Alert.alert('Archivar nota', `¿Archivar "${note.title}"? Podrás restaurarla desde Archivadas.`, [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Archivar',
-        onPress: () => {
-          void impactMedium();
-          archiveNote(note.id);
-          router.back();
-        },
-      },
-    ]);
+    const confirmed = await confirmAction(
+      'Archivar nota',
+      `¿Archivar "${note.title}"? Podrás restaurarla desde Archivadas.`,
+      'Archivar',
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    void impactMedium();
+    archiveNote(note.id);
+    router.back();
   }, [archiveNote, note, router]);
 
   if (!hasHydrated) {
